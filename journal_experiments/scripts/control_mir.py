@@ -13,6 +13,8 @@ from std_msgs.msg import Int32
 class Control_mir_node():
 
     def __init__(self):
+        self.mir_cmd_vel_topic_relative = rospy.get_param("~mir_cmd_vel_topic_relative", "cmd_vel")
+        self.mir_pose_topic_relative = rospy.get_param("~mir_pose_topic_relative", "mir_pose_simple")
         self.external_control = rospy.get_param("~external_control", True)
         self.path_array = rospy.get_param("~path_array", [])
         self.relative_positions_x = rospy.get_param("~relative_positions_x", [0])
@@ -41,10 +43,10 @@ class Control_mir_node():
         
         for i in range(len(self.robot_names)):
             self.robot_path_publishers.append(rospy.Publisher(self.robot_names[i] + '/robot_path', Path, queue_size=1))
-            self.robot_twist_publishers.append(rospy.Publisher(self.robot_names[i] + '/mir/cmd_vel', Twist, queue_size=1))
+            self.robot_twist_publishers.append(rospy.Publisher(self.robot_names[i] +'/'+self.mir_cmd_vel_topic_relative, Twist, queue_size=1))
 
         for i in range(len(self.robot_names)):
-            rospy.Subscriber(self.robot_names[i] + '/mir/mir_pose_simple', Pose, self.mir_pose_callback, i)   
+            rospy.Subscriber(self.robot_names[i] + '/'+self.mir_pose_topic_relative, Pose, self.mir_pose_callback, i)   
         
         if self.external_control:
             rospy.Subscriber('path_index', Int32, self.path_index_callback)
@@ -76,7 +78,7 @@ class Control_mir_node():
 
 
         # wait for mocap to be ready
-        rospy.wait_for_message(self.robot_names[0] + '/mir/mir_pose_simple', Pose)
+        rospy.wait_for_message(self.robot_names[0] + '/mir_pose_simple', Pose)
 
 
 

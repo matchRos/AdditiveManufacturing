@@ -1,3 +1,5 @@
+.vscode/
+*.pyc
 match_amc/scripts/path_files/__pycache__/circle_mirx.cpython-38.pyc
 match_amc/scripts/path_files/__pycache__/circle_miry.cpython-38.pyc
 match_amc/scripts/path_files/__pycache__/circle_urx.cpython-38.pyc

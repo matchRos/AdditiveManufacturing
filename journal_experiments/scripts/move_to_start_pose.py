@@ -19,18 +19,19 @@ class Move_to_start_pose():
         self.linear_vel_limit = 0.08
         self.angular_vel_limit = 0.2
         self.linear_tolerance = 0.15
-        
+        self.cmd_vel_topic = rospy.get_param("~mir_cmd_vel_topic", "/mur620c/cmd_vel")
+        rospy.loginfo("cmd_vel_topic: %s", self.cmd_vel_topic)
         
         self.move_base_simple_goal_pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=1)
-        self.cmd_vel_pub = rospy.Publisher('/mur620c/mir/cmd_vel', Twist, queue_size=1)
-        rospy.Subscriber('/mur620c/mir/mir_pose_simple', Pose, self.mir_pose_callback)
+        self.cmd_vel_pub = rospy.Publisher(self.cmd_vel_topic, Twist, queue_size=1)
+        rospy.Subscriber('/mur620c/mir_pose_simple', Pose, self.mir_pose_callback)
         rospy.sleep(0.1)
 
 
     def run(self):
         # wait for pose
-        rospy.loginfo('Waiting for first message from /mur620c/mir/mir_pose_simple...')
-        rospy.wait_for_message('/mur620c/mir/mir_pose_simple', Pose)
+        rospy.loginfo('Waiting for first message from /mur620c/mir_pose_simple...')
+        rospy.wait_for_message('/mur620c/mir_pose_simple', Pose)
         
         
         # send the robot to the target pose using move base action server
@@ -133,7 +134,7 @@ class Move_to_start_pose():
         # stop the robot
         self.target_vel.angular.z = 0
         self.cmd_vel_pub.publish(self.target_vel)
-        rospy.loginfo('Robot turned to the target pose')
+        rospy.loginfo('Robot turned to the target orientation')
         
     def move_to_target_pose(self):
         rate = rospy.Rate(self.control_rate)

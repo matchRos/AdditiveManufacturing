@@ -2,11 +2,10 @@
 
 import rospy
 import tf
-from std_msgs.msg import Int32
-from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, Pose, Twist
 import math
 from tf import transformations
+import numpy as np
 
 class MoveURToStartPose():
     
@@ -19,7 +18,8 @@ class MoveURToStartPose():
         self.Kpy = rospy.get_param("~Kpy", 0.3)
         self.Kpz = rospy.get_param("~Kpz", 0.1)
         self.Kp_phi = rospy.get_param("~Kp_phi", 0.3)
-        self.ur_target_tolerance = rospy.get_param("~ur_target_tolerance", 0.01)
+        self.ur_target_tolerance_trans = rospy.get_param("~ur_target_tolerance_trans", 0.01)
+        self.ur_target_tolerance_rot = rospy.get_param("~ur_target_tolerance_rot", 0.01)
         self.ur_scanner_angular_offset = rospy.get_param("~ur_scanner_angular_offset", -math.pi)
         self.mir_angle = rospy.get_param("~mir_angle", 0.0)
         pass
@@ -50,6 +50,14 @@ class MoveURToStartPose():
         
         self.config()
         
+        # For Debugging:
+        robot_names = rospy.get_param("~robot_names", ["mur620c"])
+        pub_start_pose = rospy.Publisher("/start_pose_ur", PoseStamped, queue_size=1, latch=True)
+        pose_pub = PoseStamped()
+        pose_pub.header.frame_id = robot_names[0] + "/UR10_l/base_link"
+        # pose_pub.header.frame_id = robot_names[0] + "/base_link"
+        pose_pub.pose = self.ur_start_pose
+        pub_start_pose.publish(pose_pub)
 
     def move_ur_to_start_pose(self):
                 
@@ -62,30 +70,35 @@ class MoveURToStartPose():
              # broadcast start pose
             self.broadcast_target_pose(self.ur_start_pose)
         
-            # the ur is mounted backwards, so we have to invert the x and y axis
-            ur_start_pose_x = - self.ur_start_pose.position.x
-            ur_start_pose_y = - self.ur_start_pose.position.y
+            # for UR_r_ the ur is mounted backwards, so we have to invert the x and y axis (ONLY IF goal pose is calculated wrong before...)
+            ur_start_pose_x = self.ur_start_pose.position.x
+            ur_start_pose_y = self.ur_start_pose.position.y
             
-            # compute ur phi angle
-            ur_current_phi = transformations.euler_from_quaternion([self.ur_pose_current.orientation.x, self.ur_pose_current.orientation.y, self.ur_pose_current.orientation.z, self.ur_pose_current.orientation.w])[2]
-            ur_target_phi = transformations.euler_from_quaternion([self.ur_start_pose.orientation.x, self.ur_start_pose.orientation.y, self.ur_start_pose.orientation.z, self.ur_start_pose.orientation.w])[2]
-        
+            # compute all orientation errors:
+            ur_current_euler = np.array(transformations.euler_from_quaternion([self.ur_pose_current.orientation.x, self.ur_pose_current.orientation.y, self.ur_pose_current.orientation.z, self.ur_pose_current.orientation.w]))
+            ur_target_euler = np.array(transformations.euler_from_quaternion([self.ur_start_pose.orientation.x, self.ur_start_pose.orientation.y, self.ur_start_pose.orientation.z, self.ur_start_pose.orientation.w]))
             # calculate error
             e_x = ur_start_pose_x - self.ur_pose_current.position.x
             e_y = ur_start_pose_y - self.ur_pose_current.position.y
             e_z = self.ur_start_pose.position.z - self.ur_pose_current.position.z
-            e_phi = ur_target_phi - self.mir_angle - ur_current_phi + self.ur_scanner_angular_offset
-                        
-            if e_phi > math.pi:
-                e_phi = e_phi - 2 * math.pi
-            elif e_phi < -math.pi:
-                e_phi = e_phi + 2 * math.pi
+            # e_phi = ur_target_phi - self.mir_angle - ur_current_phi + self.ur_scanner_angular_offset
+            ur_euler_error = ur_target_euler - ur_current_euler
+            ur_euler_error[2] = ur_euler_error[2] - self.mir_angle + self.ur_scanner_angular_offset
+            for i, e_angle in enumerate(ur_euler_error):
+                if e_angle > math.pi:
+                    ur_euler_error[i] = e_angle - 2 * math.pi
+                elif e_angle < -math.pi:
+                    ur_euler_error[i] = e_angle + 2 * math.pi
+            ur_euler_error*=self.Kp_phi
             
             # calculate command
             self.ur_command.linear.x = e_x * self.Kpx
             self.ur_command.linear.y = e_y * self.Kpy
             self.ur_command.linear.z = e_z * self.Kpz
-            self.ur_command.angular.z = e_phi * self.Kp_phi
+            # self.ur_command.angular.z = e_phi * self.Kp_phi
+            self.ur_command.angular.x = ur_euler_error[0]
+            self.ur_command.angular.y = ur_euler_error[1]
+            self.ur_command.angular.z = ur_euler_error[2]
                        
             # limit velocity
             ur_command = self.limit_velocity(self.ur_command, self.ur_command_old)
@@ -94,11 +107,12 @@ class MoveURToStartPose():
             self.ur_twist_publisher.publish(ur_command)
         
             # check if target is reached
-            if abs(e_x) < self.ur_target_tolerance and abs(e_y) < self.ur_target_tolerance and abs(e_z) < self.ur_target_tolerance and abs(e_phi) < self.ur_target_tolerance  :
+            if abs(e_x) < self.ur_target_tolerance_trans and abs(e_y) < self.ur_target_tolerance_trans and abs(e_z) < self.ur_target_tolerance_trans and all(abs(ur_euler_error) < self.ur_target_tolerance_rot)  :
                 self.ur_command.linear.x = 0
                 self.ur_command.linear.y = 0
                 self.ur_command.linear.z = 0
                 self.ur_twist_publisher.publish(self.ur_command)
+                rospy.loginfo("UR reached start pose")
                 rospy.sleep(0.1)
                 break
             
@@ -140,14 +154,24 @@ class MoveURToStartPose():
         ur_command.linear.z = ur_command.linear.z * vel_scale
         
         # limit angular velocity
+        if abs(ur_command.angular.x) > self.ur_angular_velocity_limit:
+            vel_scale = self.ur_angular_velocity_limit / abs(ur_command.angular.x)
+        if abs(ur_command.angular.y) > self.ur_angular_velocity_limit:
+            vel_scale = self.ur_angular_velocity_limit / abs(ur_command.angular.y)
         if abs(ur_command.angular.z) > self.ur_angular_velocity_limit:
             vel_scale = self.ur_angular_velocity_limit / abs(ur_command.angular.z)
             
         # limit angular acceleration
+        if abs(ur_command.angular.x - ur_command_old.angular.x) > self.ur_angular_acceleration_limit:
+            vel_scale = self.ur_angular_acceleration_limit / abs(ur_command.angular.x - ur_command_old.angular.x)
+        if abs(ur_command.angular.y - ur_command_old.angular.y) > self.ur_angular_acceleration_limit:
+            vel_scale = self.ur_angular_acceleration_limit / abs(ur_command.angular.y - ur_command_old.angular.y)
         if abs(ur_command.angular.z - ur_command_old.angular.z) > self.ur_angular_acceleration_limit:
             vel_scale = self.ur_angular_acceleration_limit / abs(ur_command.angular.z - ur_command_old.angular.z)
 
         # apply vel_scale
+        ur_command.angular.x = ur_command.angular.x * vel_scale
+        ur_command.angular.y = ur_command.angular.y * vel_scale
         ur_command.angular.z = ur_command.angular.z * vel_scale
         
         return ur_command

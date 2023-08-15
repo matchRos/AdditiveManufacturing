@@ -1,0 +1,25 @@
+<launch>
+    <group ns="mur620c">
+    <!-- spawn right controller for twist_controller: -->
+    <node name="controller_stop" pkg="controller_manager" type="controller_manager" respawn="false" output="screen" args="stop UR10_l/arm_controller" />
+    <node name="controller_start" pkg="controller_manager" type="controller_manager" respawn="false" output="screen" args="start joint_group_vel_controller_l/unsafe" />
+	
+
+    <node name="twist_controller" pkg="ur_controllers_match" type="twist_controller.py" output="screen">
+        <param name="ur_ns" type="string" value="mur620c" />
+        <param name="prefix_ur" type="string" value="UR10_l/" />
+        <param name="prefix_mir" type="string" value="" />
+
+        <remap from="twist_command" to="/mur620c/UR10_l/twist_controller/command_safe" />
+        <remap from="/mur620c/UR10_l/joint_group_vel_controller/command" to="/mur620c/joint_group_vel_controller_l/unsafe/command" />
+    </node>
+    </group>
+
+    <!-- set parameters for state_machine: -->
+    <rosparam>
+        ur_command_topic: "/mur620c/UR10_l/twist_command"
+        mir_pose_topic: "/mur620c/mir_pose_simple"
+        mir_cmd_vel_topic: "/mur620c/mobile_base_controller/cmd_vel"
+    </rosparam>
+
+</launch>

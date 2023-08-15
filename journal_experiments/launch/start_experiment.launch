@@ -1,5 +1,36 @@
 <launch>
+<arg name="sim" default="true" />
 
+<group if="$(arg sim)">
+    <rosparam>
+        mur620c/move_to_start_pose/mir_cmd_vel_topic: "/mur620c/mobile_base_controller/cmd_vel"
+        move_ur_to_start_pose/ur_command_topic: "/mur620c/UR10_l/twist_controller/command_safe"
+        move_ur_to_start_pose/ur_pose_topic: "/mur620c/UR10_l/ur_calibrated_pose"
+        move_ur_to_start_pose/ur_base_link_frame_id: "mur620c/UR10_l/base_link"
+
+        move_ur_to_start_pose/ur_target_tolerance_trans: 0.1
+        move_ur_to_start_pose/ur_target_tolerance_rot: 0.5
+
+        move_ur_to_start_pose/Kpx: 0.5
+        move_ur_to_start_pose/Kpy: 0.5
+        move_ur_to_start_pose/Kpz: 0.5
+        move_ur_to_start_pose/Kp_phi: 0.1
+
+        control_ur/mir_cmd_vel_topic: "/mur620c/mobile_base_controller/cmd_vel"
+        control_ur/ur_command_topic: "/mur620c/UR10_l/twist_controller/command_safe"
+        control_ur/mir_pose_topic : /mur620c/mir_pose_simple
+        control_ur/ur_pose_topic: "/mur620c/UR10_l/ur_calibrated_pose"
+        control_ur/ur_base_link_frame_id: "mur620c/UR10_l/base_link"
+
+        control_mir/mir_cmd_vel_topic_relative: "mobile_base_controller/cmd_vel"
+
+        calibrated_pose_fake/namespace: "mur620c/UR10_l/"
+    </rosparam>
+    <node name="calibrated_pose_fake" pkg="journal_experiments" type="calibrated_pose_fake.py" output="screen" />
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="world_transform" args="0 0 0 0 0 0 mur620c/UR10_l/tool0 sensor_frame" output="screen"/>
+    
+</group>
 <!-- start the state machine -->
 <node pkg="journal_experiments" type="state_machine.py" name="state_machine" output="screen" />
 

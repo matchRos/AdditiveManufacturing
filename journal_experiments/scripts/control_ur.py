@@ -142,8 +142,8 @@ class Control_ur():
     def get_mir_ur_transform(self):
         tf_listener = tf.TransformListener()
         # wait for transform
-        tf_listener.waitForTransform(self.tf_prefix + "mir/base_link", self.tf_prefix + "UR10_r/base_link", rospy.Time(0), rospy.Duration(4.0))
-        lin, ang = tf_listener.lookupTransform(self.tf_prefix + "mir/base_link", self.tf_prefix + "UR10_r/base_link", rospy.Time(0))
+        tf_listener.waitForTransform(self.tf_prefix + "base_link", self.tf_prefix + "UR10_l/base_link", rospy.Time(0), rospy.Duration(4.0))
+        lin, ang = tf_listener.lookupTransform(self.tf_prefix + "base_link", self.tf_prefix + "UR10_l/base_link", rospy.Time(0))
         
         self.mir_ur_transform.translation.x = lin[0]
         self.mir_ur_transform.translation.y = lin[1]
@@ -224,7 +224,7 @@ class Control_ur():
         ur_target_pose_local.position.z = ur_target_pose_global.position.z 
         
         # broadcast target pose
-        self.ur_target_pose_broadcaster.sendTransform((ur_target_pose_local.position.x, ur_target_pose_local.position.y, ur_target_pose_local.position.z), (ur_target_pose_global.orientation.x, ur_target_pose_global.orientation.y, ur_target_pose_global.orientation.z, ur_target_pose_global.orientation.w), rospy.Time.now(), "ur_local_target_pose", "mur620c/mir/base_link")
+        self.ur_target_pose_broadcaster.sendTransform((ur_target_pose_local.position.x, ur_target_pose_local.position.y, ur_target_pose_local.position.z), (ur_target_pose_global.orientation.x, ur_target_pose_global.orientation.y, ur_target_pose_global.orientation.z, ur_target_pose_global.orientation.w), rospy.Time.now(), "ur_local_target_pose", "mur620c/base_link")
         
         
         # UR is mounted backwards, so we need to invert the x-axis and y-axis

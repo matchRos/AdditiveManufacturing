@@ -1,0 +1,11 @@
+<launch>
+    <include file="$(find match_gazebo)/launch/big_square.launch" >
+        <arg name="gui" value="false"/>
+    </include>
+    
+    <include file="$(find mur_launch_sim)/launch/mur_620.launch">
+        <arg name="tf_prefix" value="mur620c"/>
+    </include>
+
+    <!-- Launch twist_sim as well (after homing finished), or set controllers at launch with args in mur620.launch-->
+</launch>

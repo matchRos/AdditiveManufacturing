@@ -28,7 +28,7 @@ class Move_mir():
         self.listener = listener.TransformListener()
         self.config()
         self.ur_command_old = Twist()
-        self.cmd_vel_pub = rospy.Publisher("/mur620b/mir/cmd_vel", Twist, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher("/mur620b/cmd_vel", Twist, queue_size=1)
         self.ur_twist_pub = rospy.Publisher("/UR10_r/twist_controller/command", Twist, queue_size=1)
         rospy.Subscriber("/qualisys/mur620b/pose", PoseStamped, self.pose_callback)
         
